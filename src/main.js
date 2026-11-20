@@ -4,7 +4,7 @@ import { TOOLBOXES, TOOLS } from "./tools.js";
 import { createPane, h, fmtSec, RAIL_ICON } from "./ui.js";
 
 const ID = "terrio-toolbox";
-const VERSION = "0.2.1";
+const VERSION = "0.2.2";
 const TERRIO_VERSION = "0.9.0";
 const PANEL = "terrio-toolbox-geoprocessing";
 const WASM_CDN = `https://cdn.jsdelivr.net/npm/terrio-js@${TERRIO_VERSION}/terrio_bg.wasm`;
@@ -361,7 +361,7 @@ const plugin = {
     S.app = app;
     const off = app.registerRightPanel?.({
       id: PANEL,
-      title: "Geoprocessing",
+      title: "Terrio Toolbox",
       dock: "replace-style",
       icon: RAIL_ICON,
       defaultWidth: 380,
@@ -377,6 +377,14 @@ const plugin = {
       },
     });
     if (typeof off === "function") S.dispose.push(off);
+    // Like ArcMap's ArcToolbox window: docked on the right and open as soon as the plugin is on,
+    // including when GeoLibre starts with the plugin already active. The host may still be laying
+    // out its sidebars during activation, so try again shortly if the first call is refused.
+    const open = () => app.openRightPanel?.(PANEL);
+    if (!open()) {
+      const retry = setTimeout(open, 600);
+      S.dispose.push(() => clearTimeout(retry));
+    }
     const toolItems = (box) => TOOLS.filter((t) => t.box === box.id).map((t) => ({ id: `tool-${t.id}`, label: `${t.name}…`, onSelect: () => openPane(t.id) }));
     const items = [
       { id: "geoprocessing", label: "Geoprocessing", onSelect: () => openPane() },

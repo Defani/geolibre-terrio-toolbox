@@ -79,7 +79,7 @@ const CRS_PRESETS = [
 export function createPane(container, api) {
   const P = {
     view: "home", // home | tool
-    tab: store.get("tab", "toolboxes"), // favorites | toolboxes | history
+    tab: "toolboxes", // favorites | toolboxes | history; opens on the tree, like ArcToolbox
     search: "",
     expanded: new Set(store.get("expanded", ["analysis"])),
     favorites: new Set(store.get("favorites", [])),
@@ -174,6 +174,8 @@ export function createPane(container, api) {
       renderHistory(list);
       return;
     }
+    // the root node, like ArcMap's "ArcToolbox"
+    list.append(h("div", { class: "tt-row tt-root", role: "presentation" }, `${ICON.toolbox}<span class="tt-name">Terrio Toolbox</span>`));
     for (const box of TOOLBOXES) {
       const open = P.expanded.has(box.id);
       list.append(groupRow(box.id, box.name, ICON.toolbox, open, 0, list));

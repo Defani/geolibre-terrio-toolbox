@@ -472,3 +472,14 @@
   min-width: 96px;
   justify-content: center;
 }
+
+.tt-root {
+  font-weight: 600;
+  cursor: default;
+}
+.tt-root:hover {
+  background: none;
+}
+.tt-root .tt-ic {
+  color: hsl(var(--foreground));
+}
