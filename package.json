@@ -1,0 +1,17 @@
+{
+  "name": "terrio-toolbox",
+  "version": "0.1.4",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "esbuild": "^0.28.2",
+    "terrio-js": "^0.9.0"
+  },
+  "type": "module"
+}

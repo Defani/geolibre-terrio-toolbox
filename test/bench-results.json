@@ -1,0 +1,106 @@
+{
+  "when": "2026-11-20T18:10:39.852Z",
+  "node": "v22.23.3",
+  "terrio": "0.9.0",
+  "rows": [
+    {
+      "task": "Hillshade",
+      "data": "2000x2000",
+      "terrio": 204.70370000000003,
+      "other": "whitebox",
+      "otherMs": 1765.5887000000002,
+      "ratio": 8.625094221550466,
+      "note": ""
+    },
+    {
+      "task": "Slope (degrees)",
+      "data": "2000x2000",
+      "terrio": 189.59190000000126,
+      "other": "whitebox",
+      "otherMs": 2534.5775000000012,
+      "ratio": 13.368595915753703,
+      "note": ""
+    },
+    {
+      "task": "Aspect",
+      "data": "2000x2000",
+      "terrio": 245.60129999999845,
+      "other": "whitebox",
+      "otherMs": 2610.926299999999,
+      "ratio": 10.630751140160967,
+      "note": ""
+    },
+    {
+      "task": "Contour 50 m",
+      "data": "2000x2000",
+      "terrio": 410.3909999999996,
+      "other": "whitebox",
+      "otherMs": 860.9824999999983,
+      "ratio": 2.0979565828685303,
+      "note": ""
+    },
+    {
+      "task": "Hillshade",
+      "data": "3352x3342",
+      "terrio": 486.16159999999945,
+      "other": "whitebox",
+      "otherMs": 4875.397199999999,
+      "ratio": 10.028346952947343,
+      "note": ""
+    },
+    {
+      "task": "Slope (degrees)",
+      "data": "3352x3342",
+      "terrio": 535.0985000000001,
+      "other": "whitebox",
+      "otherMs": 7371.631400000006,
+      "ratio": 13.776213912018077,
+      "note": ""
+    },
+    {
+      "task": "Aspect",
+      "data": "3352x3342",
+      "terrio": 695.1142999999865,
+      "other": "whitebox",
+      "otherMs": 7368.8717999999935,
+      "ratio": 10.600949800630106,
+      "note": ""
+    },
+    {
+      "task": "Contour 50 m",
+      "data": "3352x3342",
+      "terrio": 1300.4847000000009,
+      "other": "whitebox",
+      "otherMs": 3823.9449999999924,
+      "ratio": 2.9403998370761224,
+      "note": ""
+    },
+    {
+      "task": "Dissolve (all villages)",
+      "data": "751 polygons",
+      "terrio": 2128.775800000003,
+      "other": "turf.union",
+      "otherMs": 3875.827900000004,
+      "ratio": 1.8206839348699841,
+      "note": ""
+    },
+    {
+      "task": "Buffer 50 m (rivers)",
+      "data": "10162 lines",
+      "terrio": 2154.9612999999954,
+      "other": "turf.buffer",
+      "otherMs": 5738.1181000000215,
+      "ratio": 2.6627476326373163,
+      "note": ""
+    },
+    {
+      "task": "Clip rivers by villages",
+      "data": "10162 x 751",
+      "terrio": 15956.425799999997,
+      "other": "whitebox clip",
+      "otherMs": null,
+      "ratio": null,
+      "note": "ERROR running 'clip': Validation(\"overlay tools currently support polygon and mu"
+    }
+  ]
+}
