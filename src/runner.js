@@ -52,7 +52,12 @@ export function runTool(terrio, toolId, params, log = () => {}) {
         results.push({ kind: "vector", name: o.name, geojson, count: geojson.features.length });
       } else if (o.kind === "raster") {
         const info = o.ds.info(false, false);
-        const bytes = o.ds.toBytes("out.tif", { format: "COG", compress: "DEFLATE" });
+        // DEFLATE takes ~4x longer than the processing itself on very large rasters (50 s for a
+        // 120-million-cell Sentinel-2 tile): write those uncompressed (13 s).
+        const cells = info.size[0] * info.size[1] * (info.band_count ?? 1);
+        const compress = cells > 25e6 ? "NONE" : "DEFLATE";
+        if (compress === "NONE") log(`Large output (${(cells / 1e6).toFixed(0)} million cells): written uncompressed for speed`);
+        const bytes = o.ds.toBytes("out.tif", { format: "COG", compress });
         results.push({ kind: "raster", name: o.name, bytes, size: info.size, crs: info.crs?.name ?? "", stats: ctx.bandRange(o.ds), style: o.style ?? null });
         transfer.push(bytes.buffer);
       } else if (o.kind === "file") {

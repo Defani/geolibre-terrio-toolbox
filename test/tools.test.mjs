@@ -108,6 +108,12 @@ await run("euclidean", { raster: firstRaster(results.reclassify), values: "3", m
 
 // --- Conversion
 await run("raster_to_polygon", { raster: firstRaster(results.reclassify), band: 1, field: "gridcode", conn: "4", out: "rp" });
+await run("raster_to_ascii", { raster: demUtm, band: 1, decimals: 2, out: "dem" }, (r) => {
+  const head = new TextDecoder().decode(r.results[0].bytes.slice(0, 200));
+  assert.match(head, /ncols\s+835/i, head);
+  assert.match(head, /cellsize/i);
+  assert.equal(r.results[1].name, "dem.prj");
+});
 await run("raster_to_file", { raster: demUtm, format: "asc", crs: "", out: "dem" }, (r) => assert.ok(r.results[0].bytes.length > 1000));
 await run("feature_to_raster", { input: fc("desa", desa), field: "OBJECTID", cell: 30, all: false, out: "fr" });
 for (const f of ["gpkg", "shp.zip", "parquet", "fgb", "kml", "kmz", "dxf", "csv"]) {

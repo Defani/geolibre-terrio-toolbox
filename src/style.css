@@ -1,314 +1,370 @@
-/* Terrio Toolbox: ArcMap 10-style windows (ArcToolbox, tool dialogs, progress, Results). */
-.tt-win {
-  position: fixed;
+/* Terrio Toolbox: ArcGIS Pro-style Geoprocessing pane in GeoLibre's own theme tokens.
+   Black and white: text, borders and icons use foreground/muted tones only, so the pane follows
+   GeoLibre's light and dark themes. */
+.tt-pane {
   display: flex;
   flex-direction: column;
-  background: #f0f0f0;
-  color: #1b1b1b;
-  border: 1px solid #7a8899;
-  border-radius: 4px;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.32), 0 1px 3px rgba(0, 0, 0, 0.25);
-  font: 12px/1.35 "Segoe UI", Tahoma, Arial, sans-serif;
-  min-width: 240px;
-  max-height: calc(100vh - 60px);
-  overflow: hidden;
-  color-scheme: light;
+  height: 100%;
+  min-height: 0;
+  color: hsl(var(--foreground));
+  background: hsl(var(--background));
+  font-size: 13px;
+  line-height: 1.4;
 }
-.tt-win svg {
+.tt-ic {
   flex: none;
 }
-.tt-title {
+
+/* Find Tools */
+.tt-top {
+  padding: 10px 12px 6px;
+}
+.tt-find {
   display: flex;
   align-items: center;
   gap: 6px;
-  height: 28px;
-  padding: 0 4px 0 8px;
-  background: linear-gradient(#e9f0f9, #cfdcee);
-  border-bottom: 1px solid #9fb1c8;
-  cursor: move;
-  user-select: none;
-  touch-action: none;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid hsl(var(--input));
+  border-radius: var(--radius);
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--background));
 }
-.tt-title-icon {
-  display: flex;
+.tt-find:focus-within {
+  border-color: hsl(var(--foreground));
 }
-.tt-title-text {
+.tt-find input {
   flex: 1;
-  font-weight: 600;
-  color: #15325c;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: hsl(var(--foreground));
+  font: inherit;
 }
-.tt-x {
-  width: 24px;
-  height: 20px;
-  border: 1px solid transparent;
-  border-radius: 3px;
+
+/* tabs: Favorites | Toolboxes | History, and Parameters in a tool */
+.tt-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 0 12px;
+  border-bottom: 1px solid hsl(var(--border));
+}
+.tt-tab {
+  position: relative;
+  padding: 7px 8px 8px;
+  border: 0;
   background: none;
-  color: #333;
-  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+  font: inherit;
+  font-weight: 500;
   cursor: pointer;
 }
-.tt-x:hover {
-  background: #c94c4c;
-  border-color: #a33;
-  color: #fff;
+.tt-tab:hover {
+  color: hsl(var(--foreground));
 }
-.tt-body {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
+.tt-tab.is-active {
+  color: hsl(var(--foreground));
+}
+.tt-tab.is-active::after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: -1px;
+  height: 2px;
+  background: hsl(var(--foreground));
+}
+.tt-tabs-tool {
+  margin-top: 2px;
 }
 
-/* ArcToolbox tree */
-.tt-search {
-  margin: 6px;
-  padding: 3px 6px;
-  border: 1px solid #a5acb5;
-  border-radius: 2px;
-  font: inherit;
-  background: #fff;
-  color: #111;
-}
-.tt-tree {
+/* tool lists */
+.tt-list {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  background: #fff;
-  border-top: 1px solid #c9ced6;
-  border-bottom: 1px solid #c9ced6;
-  padding: 3px 0;
+  padding: 6px 4px 10px;
 }
-.tt-node {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  height: 21px;
-  padding-right: 8px;
-  white-space: nowrap;
-  cursor: default;
-  user-select: none;
-}
-.tt-node > span:not(.tt-twisty):not(.tt-twisty-none):not(.tt-time) {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.tt-node:hover {
-  background: #e5f1fb;
-}
-.tt-node:focus-visible {
-  outline: 1px dotted #000;
-  outline-offset: -1px;
-  background: #cce8ff;
-}
-.tt-root {
-  padding-left: 6px;
+.tt-head {
+  padding: 10px 10px 4px;
+  font-size: 10px;
   font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground));
 }
-.tt-d1 {
-  padding-left: 14px;
-}
-.tt-d2 {
-  padding-left: 30px;
-}
-.tt-d3 {
-  padding-left: 46px;
-}
-.tt-twisty,
-.tt-twisty-none {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 11px;
-  height: 11px;
-  flex: none;
-  font-size: 10px;
-  line-height: 1;
-}
-.tt-twisty {
-  border: 1px solid #919191;
-  background: linear-gradient(#fff, #e6e6e6);
-  color: #333;
-  font-weight: 700;
-}
-.tt-status {
-  padding: 4px 8px;
-  font-size: 11px;
-  color: #555;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* tool dialog */
-.tt-dialog-main {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-  max-height: 62vh;
-}
-.tt-form {
-  flex: 1 1 58%;
-  overflow: auto;
-  padding: 8px 10px;
-  background: #fff;
-  border-right: 1px solid #c9ced6;
-}
-.tt-help {
-  flex: 1 1 42%;
-  overflow: auto;
-  padding: 10px 12px;
-  background: #fbfbf4;
-}
-.tt-help h3 {
-  margin: 0 0 6px;
-  font-size: 13px;
-  color: #15325c;
-}
-.tt-help p {
-  margin: 0;
-  color: #333;
-}
-.tt-help-error h3 {
-  color: #b3261e;
-}
-.tt-nohelp .tt-form {
-  border-right: 0;
-}
-.tt-param {
-  margin-bottom: 9px;
-}
-.tt-label {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-bottom: 3px;
-  color: #1b1b1b;
-}
-.tt-req {
-  display: inline-block;
-  width: 10px;
-  color: #1f9a3a;
-  font-size: 10px;
+.tt-empty {
+  padding: 4px 10px 8px;
+  color: hsl(var(--muted-foreground));
 }
 .tt-row {
   display: flex;
   align-items: center;
-  gap: 4px;
-  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
+  min-height: 28px;
+  padding: 3px 8px;
+  border: 0;
+  border-radius: calc(var(--radius) - 2px);
+  background: none;
+  color: hsl(var(--foreground));
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
 }
-.tt-input {
+.tt-row:hover {
+  background: hsl(var(--accent));
+}
+.tt-row:focus-visible,
+.tt-btn:focus-visible,
+.tt-iconbtn:focus-visible,
+.tt-tab:focus-visible,
+.tt-link:focus-visible {
+  outline: 2px solid hsl(var(--foreground));
+  outline-offset: 1px;
+}
+.tt-row .tt-ic {
+  color: hsl(var(--muted-foreground));
+}
+.tt-group {
+  font-weight: 500;
+}
+.tt-group .tt-ic {
+  color: hsl(var(--foreground));
+}
+.tt-twist {
+  display: inline-flex;
+  width: 14px;
+  flex: none;
+  color: hsl(var(--muted-foreground));
+  transition: transform 0.12s;
+}
+.tt-group.is-open .tt-twist {
+  transform: rotate(90deg);
+}
+.tt-d1 {
+  padding-inline-start: 22px;
+}
+.tt-d2 {
+  padding-inline-start: 36px;
+}
+.tt-name {
   flex: 1;
   min-width: 0;
-  width: 100%;
-  box-sizing: border-box;
-  height: 23px;
-  padding: 1px 5px;
-  border: 1px solid #a5acb5;
-  border-radius: 2px;
-  background: #fff;
-  color: #111;
-  font: inherit;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.tt-row .tt-input {
-  width: auto;
+.tt-where {
+  flex: none;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
 }
-.tt-area {
-  height: auto;
-  font-family: Consolas, "Courier New", monospace;
-  resize: vertical;
+.tt-fav {
+  display: inline-flex;
+  color: hsl(var(--foreground));
 }
-.tt-input:focus {
-  outline: none;
-  border-color: #3c7fb1;
-  box-shadow: 0 0 0 1px #3c7fb1;
+.tt-engine {
+  padding: 6px 12px;
+  border-top: 1px solid hsl(var(--border));
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.tt-browse {
+
+/* history */
+.tt-hist > summary {
+  list-style: none;
+}
+.tt-hist > summary::-webkit-details-marker {
+  display: none;
+}
+.tt-hrow .tt-ic {
+  color: hsl(var(--foreground));
+}
+.tt-hrow.is-error .tt-name {
+  text-decoration: underline dotted;
+}
+.tt-time {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  color: hsl(var(--muted-foreground));
+}
+
+/* tool view */
+.tt-toolhead {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 8px 6px;
+}
+.tt-tooltitle {
+  flex: 1;
+  min-width: 0;
+}
+.tt-toolname {
+  font-size: 15px;
+  font-weight: 600;
+}
+.tt-crumb {
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+}
+.tt-iconbtn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 25px;
-  height: 23px;
-  border: 1px solid #a5acb5;
-  border-radius: 2px;
-  background: linear-gradient(#fdfdfd, #e3e3e3);
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: hsl(var(--muted-foreground));
   cursor: pointer;
 }
-.tt-checklist {
-  max-height: 110px;
+.tt-iconbtn:hover,
+.tt-iconbtn.is-on {
+  color: hsl(var(--foreground));
+  background: hsl(var(--accent));
+}
+.tt-helpbox {
+  margin: 0 12px 8px;
+  padding: 8px 10px;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
+  font-size: 12px;
+}
+.tt-form {
+  flex: 1;
+  min-height: 0;
   overflow: auto;
-  border: 1px solid #a5acb5;
-  background: #fff;
-  padding: 2px 4px;
+  padding: 10px 12px 12px;
+}
+.tt-param {
+  margin-bottom: 12px;
+}
+.tt-label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.tt-req {
+  margin-inline-start: 3px;
+  color: hsl(var(--foreground));
+}
+.tt-param.is-missing .tt-input,
+.tt-param.is-missing .tt-checks {
+  border-color: hsl(var(--foreground));
+  box-shadow: 0 0 0 1px hsl(var(--foreground));
+}
+.tt-param.is-missing .tt-label::after {
+  content: " — required";
+  font-weight: 400;
+  color: hsl(var(--muted-foreground));
+}
+.tt-line {
+  display: flex;
+  gap: 4px;
+}
+.tt-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid hsl(var(--input));
+  border-radius: var(--radius);
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font: inherit;
+}
+.tt-input + .tt-input {
+  margin-top: 4px;
+}
+.tt-input:focus {
+  outline: none;
+  border-color: hsl(var(--foreground));
+}
+.tt-area {
+  height: auto;
+  padding: 6px 8px;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+  resize: vertical;
+}
+.tt-browse {
+  width: 32px;
+  height: 32px;
+  border: 1px solid hsl(var(--input));
+}
+.tt-checks {
+  max-height: 132px;
+  overflow: auto;
+  padding: 4px 8px;
+  border: 1px solid hsl(var(--input));
+  border-radius: var(--radius);
 }
 .tt-check {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 1px 0;
-}
-.tt-note {
-  color: #8a6d00;
-  font-size: 11px;
-}
-
-/* buttons and footers */
-.tt-footer {
-  display: flex;
-  align-items: center;
   gap: 6px;
-  padding: 7px 8px;
-  border-top: 1px solid #fff;
-  background: #f0f0f0;
+  min-height: 24px;
 }
-.tt-grow {
-  flex: 1;
+.tt-check input,
+.tt-bool input {
+  accent-color: hsl(var(--foreground));
 }
-.tt-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 74px;
-  height: 23px;
-  padding: 0 10px;
-  justify-content: center;
-  border: 1px solid #707070;
-  border-radius: 3px;
-  background: linear-gradient(#f2f2f2, #dcdcdc);
-  color: #111;
-  font: inherit;
-  cursor: pointer;
-}
-.tt-btn:hover {
-  border-color: #3c7fb1;
-  background: linear-gradient(#eaf6fd, #bee6fd);
-}
-.tt-btn:focus-visible {
-  outline: 1px dotted #000;
-  outline-offset: -4px;
-}
-.tt-primary {
-  border-color: #3c7fb1;
-}
-.tt-small {
-  min-width: 0;
+.tt-hint {
   margin-top: 4px;
   font-size: 11px;
+  color: hsl(var(--muted-foreground));
 }
 
-/* progress dialog */
-.tt-prog-head {
+/* footer: status, details, Run */
+.tt-foot {
+  border-top: 1px solid hsl(var(--border));
+  padding: 8px 12px 10px;
+}
+.tt-status {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 10px 4px;
-  font-weight: 600;
-  color: #15325c;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  background: hsl(var(--muted));
 }
-.tt-running .tt-prog-head svg {
-  animation: tt-spin 1s linear infinite;
+.tt-status .tt-ic {
+  color: hsl(var(--foreground));
+}
+.tt-status.is-running .tt-ic {
+  animation: tt-spin 1.4s linear infinite;
+}
+.tt-stext {
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+}
+.tt-elapsed {
+  font-weight: 400;
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+  font-variant-numeric: tabular-nums;
+}
+.tt-elapsed b {
+  color: hsl(var(--foreground));
+  font-weight: 600;
 }
 @keyframes tt-spin {
   to {
@@ -316,20 +372,17 @@
   }
 }
 .tt-bar {
-  height: 14px;
-  margin: 2px 10px;
-  border: 1px solid #a5acb5;
-  background: #e6e6e6;
+  height: 3px;
+  margin-top: 6px;
   overflow: hidden;
+  border-radius: 2px;
+  background: hsl(var(--border));
 }
-.tt-bar-fill {
-  height: 100%;
-  width: 100%;
-  background: linear-gradient(#5fd35f, #2ea02e);
-}
-.tt-running .tt-bar-fill {
+.tt-bar > div {
   width: 35%;
-  animation: tt-slide 1.2s ease-in-out infinite;
+  height: 100%;
+  background: hsl(var(--foreground));
+  animation: tt-slide 1.1s ease-in-out infinite;
 }
 @keyframes tt-slide {
   from {
@@ -339,42 +392,83 @@
     transform: translateX(290%);
   }
 }
-.tt-clock {
-  padding: 4px 10px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
+.tt-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+.tt-link {
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: hsl(var(--foreground));
+  font: inherit;
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.tt-hist .tt-link {
+  margin: 0 0 8px 34px;
 }
 .tt-msgs {
-  margin: 0 10px 4px;
-  height: 180px;
+  max-height: 150px;
   overflow: auto;
-  padding: 6px;
-  background: #fff;
-  border: 1px solid #a5acb5;
-  font: 11.5px/1.4 Consolas, "Courier New", monospace;
+  margin: 6px 0 0;
+  padding: 8px;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
+  font: 11px/1.45 ui-monospace, Consolas, monospace;
   white-space: pre-wrap;
   word-break: break-word;
-  color: #1b1b1b;
 }
-.tt-msgs.tt-small {
-  height: auto;
-  max-height: 160px;
-  margin: 2px 8px 6px 30px;
+.tt-hist .tt-msgs {
+  margin: 0 8px 6px 34px;
 }
-
-/* Results */
-.tt-res > summary {
-  list-style: none;
+.tt-runrow {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
 }
-.tt-res > summary::-webkit-details-marker {
-  display: none;
+.tt-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid hsl(var(--input));
+  border-radius: var(--radius);
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
 }
-.tt-time {
-  margin-left: auto;
-  padding-left: 12px;
-  color: #555;
-  font-variant-numeric: tabular-nums;
+.tt-btn:hover {
+  background: hsl(var(--accent));
 }
-.tt-block {
-  flex-basis: 100%;
+.tt-btn-sm {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+.tt-primary {
+  border-color: hsl(var(--foreground));
+  background: hsl(var(--foreground));
+  color: hsl(var(--background));
+}
+.tt-primary:hover {
+  background: hsl(var(--foreground) / 0.85);
+}
+.tt-primary:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.tt-run {
+  min-width: 96px;
+  justify-content: center;
 }

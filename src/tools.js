@@ -143,6 +143,31 @@ export const TOOLS = [
     },
   },
   {
+    id: "raster_to_ascii",
+    name: "Raster To ASCII",
+    box: "conversion",
+    set: "From Raster",
+    help: "Writes a raster band to an Esri ASCII grid (.asc): a header (ncols, nrows, xllcorner, yllcorner, cellsize, NODATA_value) followed by the cell values row by row. A .prj with the coordinate system is saved next to it.",
+    params: [
+      { name: "raster", label: "Input raster", type: "raster", required: true },
+      { name: "band", label: "Band", type: "number", default: 1, min: 1 },
+      { name: "decimals", label: "Decimal places (empty = as stored)", type: "number", default: "" },
+      { name: "out", label: "Output ASCII raster file", type: "text", required: true, default: "{raster}" },
+    ],
+    run(T, p, ctx) {
+      let src = p.raster;
+      const band = Math.max(1, Math.round(Number(p.band) || 1));
+      if (src.info(false, false).band_count > 1 || band !== 1) src = T.translate(src, { bands: [band] });
+      const opts = p.decimals !== "" ? { creationOptions: { DECIMAL_PRECISION: String(Math.max(0, Math.round(p.decimals))) } } : {};
+      const bytes = src.toBytes(`${p.out.replace(/[^\w.-]+/g, "_")}.asc`, opts);
+      const outputs = [{ kind: "file", name: `${p.out}.asc`, bytes }];
+      const wkt = src.info(false, false).crs?.wkt;
+      if (wkt) outputs.push({ kind: "file", name: `${p.out}.prj`, bytes: new TextEncoder().encode(wkt) });
+      ctx.log(`ASCII grid: ${(bytes.length / 1e6).toFixed(1)} MB`);
+      return outputs;
+    },
+  },
+  {
     id: "raster_to_file",
     name: "Raster To Other Format",
     box: "conversion",
@@ -495,11 +520,52 @@ export const TOOLS = [
       { name: "expr", label: "Expression", type: "text", required: true, default: "A * 1", placeholder: "(A - B) / (A + B)" },
       OUT("Calc"),
     ],
-    run(T, p) {
-      const inputs = { A: p.A };
-      if (p.B) inputs.B = p.B;
-      if (p.C) inputs.C = p.C;
-      return [{ kind: "raster", name: p.out, ds: T.calc(p.expr, inputs, { type: "Float32", extent: "intersect" }) }];
+    run(T, p, ctx) {
+      const inputs = {};
+      let expr = p.expr;
+      for (const k of ["A", "B", "C"]) {
+        if (!p[k]) continue;
+        inputs[k] = p[k];
+        // gdal_calc keeps integer types, so (A - B) / (A + B) on uint16 bands wraps and
+        // truncates. Promote integer inputs inside the expression (block by block, no full
+        // copy), as ArcGIS's Float() would, so indices like NDVI come out right.
+        const type = p[k].info(false, false).bands?.[0]?.data_type ?? "";
+        if (/Int|Byte/i.test(type)) {
+          expr = expr.replace(new RegExp(`\\b${k}\\b`, "g"), `(${k}*1.0)`);
+          ctx.log(`${k} is ${type}: computed as floating point so division is not truncated`);
+        }
+      }
+      const opts = { type: "Float32", extent: "intersect" };
+      // terrio's calc holds whole arrays, and every float intermediate of a 120-million-cell
+      // band is ~1 GB, past WebAssembly's 4 GB. Inputs on one grid are computed in row strips
+      // (the expression is per cell, so strips give the same result) and stitched back.
+      const infos = Object.values(inputs).map((d) => d.info(false, false));
+      const [w, hgt] = infos[0].size;
+      const sameGrid = infos.every((i) => i.size[0] === w && i.size[1] === hgt && i.geo_transform.every((v, j) => Math.abs(v - infos[0].geo_transform[j]) < 1e-9));
+      const STRIP_CELLS = 12e6;
+      // The result is computed in memory, so the inputs can go before the output is written:
+      // WebAssembly memory never shrinks, and a large COG needs the room.
+      const release = () => Object.values(inputs).forEach((d) => d.free());
+      if (!sameGrid || w * hgt <= STRIP_CELLS) {
+        const out = T.calc(expr, inputs, opts);
+        release();
+        return [{ kind: "raster", name: p.out, ds: out }];
+      }
+      const rows = Math.max(1, Math.floor(STRIP_CELLS / w));
+      const strips = [];
+      for (let y = 0; y < hgt; y += rows) {
+        const part = {};
+        for (const [k, d] of Object.entries(inputs)) part[k] = T.translate(d, { srcwin: [0, y, w, Math.min(rows, hgt - y)] });
+        strips.push(T.calc(expr, part, opts));
+        for (const d of Object.values(part)) d.free();
+      }
+      ctx.log(`Computed in ${strips.length} strips of ${rows} rows to stay within WebAssembly memory`);
+      const joined = T.mosaic(strips, {});
+      const out = T.translate(joined, {}); // a raster of its own, so the strips can be released
+      joined.free();
+      strips.forEach((s) => s.free());
+      release();
+      return [{ kind: "raster", name: p.out, ds: out }];
     },
   },
   {
@@ -531,10 +597,15 @@ export const TOOLS = [
       OUT("{raster}_Reclass"),
     ],
     run(T, p, ctx) {
-      // A NaN NoData collides with the NO_DATA rule: give the band a numeric one first.
+      // A NaN NoData collides with the NO_DATA rule, and a float NoData such as 3.4e38 does not
+      // fit the Int16 output: give the band -9999 first. The data range for AUTO is read before,
+      // while the old NoData still hides those cells.
       let src = p.raster;
-      if (String(src.info(false, false).bands?.[0]?.nodata).toLowerCase() === "nan") {
-        ctx.log("NoData was NaN: using -9999");
+      const stats = src.info(true, false).bands?.[0]?.statistics;
+      const nd = Number(src.info(false, false).bands?.[0]?.nodata);
+      const ndText = String(src.info(false, false).bands?.[0]?.nodata).toLowerCase();
+      if (ndText === "nan" || (Number.isFinite(nd) && Math.abs(nd) > 32767)) {
+        ctx.log(`NoData was ${ndText}: using -9999`);
         src = T.translate(src, { aNodata: -9999 });
       }
       let mapping = p.mapping.replace(/\s*\n\s*/g, ";").replace(/;+$/, "");
@@ -542,7 +613,7 @@ export const TOOLS = [
       if (auto) {
         // As ArcGIS does by default: equal intervals over the data range, classes 1..n.
         const n = Math.max(2, Math.min(32, Number(auto[1] ?? 5)));
-        const s = src.info(true, false).bands?.[0]?.statistics;
+        const s = stats;
         if (!s) throw new Error("Could not read the raster's range for AUTO classes");
         const step = (s.max - s.min) / n;
         const edges = Array.from({ length: n + 1 }, (_, i) => Number((s.min + i * step).toPrecision(6)));
