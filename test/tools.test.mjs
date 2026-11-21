@@ -131,6 +131,29 @@ for (const f of ["gpkg", "shp.zip", "parquet", "fgb", "kml", "kmz", "dxf", "csv"
   console.log(`ok   reclassify AUTO 5       ${(r.timing.total / 1000).toFixed(2).padStart(6)} s  classes ${st.min}-${st.max}  [${logs.find((l) => l.startsWith("AUTO"))}]`);
 }
 
+{
+  // NoData in an input stays NoData, as in ArcGIS: Con on the clipped DEM (NoData outside
+  // the polygons) must not fill the outside with the false value.
+  const tri = fc("tri", { type: "FeatureCollection", features: [{ type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [[[cx - dx, cy - dy], [cx + dx, cy - dy], [cx, cy + dy], [cx - dx, cy - dy]]] } }] });
+  const clipped = firstRaster(runTool(terrio, "clip_raster", { raster: dem, clip: tri, nodata: -9999, out: "tri" }));
+  const valid = (bytes) => {
+    const d = terrio.open(new Uint8Array(bytes), "v.tif");
+    const n = d.info(true, false).bands[0].statistics.valid_count;
+    d.free();
+    return n;
+  };
+  const r = runTool(terrio, "raster_calculator", { expr: { expr: "where(A > 1000, 1, 0)", rasters: { A: clipped } }, out: "nd" });
+  const vin = valid(clipped.bytes), vout = valid(r.results[0].bytes);
+  assert.equal(vout, vin, `valid cells in ${vin}, out ${vout}`);
+  const r2 = runTool(terrio, "raster_calculator", { expr: { expr: "(1.0 * isnan(A))", rasters: { A: clipped } }, out: "isnull" });
+  assert.ok(valid(r2.results[0].bytes) > vin, "IsNull keeps NoData cells as values");
+  // NaN values that are not flagged NoData (NDVI's 0/0 outside a scene) stay NoData too
+  const holes = firstRaster(runTool(terrio, "raster_calculator", { expr: { expr: "where(A > 1000, nan, A)", rasters: { A: dem } }, out: "holes" }));
+  const r3 = runTool(terrio, "raster_calculator", { expr: { expr: "where(A > 500, 1, 0)", rasters: { A: holes } }, out: "con" });
+  assert.equal(valid(r3.results[0].bytes), valid(holes.bytes), "NaN cells must stay NoData");
+  console.log(`ok   raster_calculator NoData   ${vin} valid cells in, ${vout} out; NaN holes kept (${valid(holes.bytes)}); IsNull not masked`);
+}
+
 const covered = new Set(Object.keys(results).concat("feature_to_file"));
 const missing = TOOLS.filter((t) => !covered.has(t.id)).map((t) => t.id);
 console.log(`\n${TOOLS.length} tools, ${failures} failed, not exercised: ${missing.join(", ") || "none"}`);

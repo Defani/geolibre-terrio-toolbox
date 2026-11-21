@@ -549,6 +549,30 @@ export const TOOLS = [
           ctx.log(`${k} is ${type}: computed as floating point so division is not truncated`);
         }
       }
+      // ArcGIS gives NoData wherever an input is NoData; terrio's where() would turn those
+      // cells into the false branch (Con("ndvi" > 0.4, 1, 0) gives 0 outside the scene).
+      // Mask them explicitly, unless the expression asks about NoData itself (IsNull). calc
+      // already masks declared NoData, so for IsNull those cells become NaN values first,
+      // or IsNull could never return 1.
+      if (/\bisnan\(/.test(expr)) {
+        for (const [k, d] of Object.entries(inputs)) {
+          const nd = d.info(false, false).bands?.[0]?.nodata;
+          if (typeof nd !== "number" || !Number.isFinite(nd)) continue;
+          const bare = T.translate(d, { aNodata: "none" });
+          inputs[k] = T.calc(`where(A == ${nd}, nan, A*1.0)`, { A: bare }, { type: "Float32", nodata: "none" });
+          d.free();
+          bare.free();
+          ctx.log(`${k}: NoData (${nd}) read as NaN so IsNull can find it`);
+        }
+      } else {
+        const terms = [];
+        for (const [k, d] of Object.entries(inputs)) {
+          terms.push(`isnan(${k}*1.0)`);
+          const nd = d.info(false, false).bands?.[0]?.nodata;
+          if (typeof nd === "number" && Number.isFinite(nd)) terms.push(`(${k} == ${nd})`);
+        }
+        expr = `where(${terms.join(" | ")}, nan, ${expr})`;
+      }
       const opts = { type: "Float32", extent: "intersect" };
       // terrio's calc holds whole arrays, and every float intermediate of a 120-million-cell
       // band is ~1 GB, past WebAssembly's 4 GB. Inputs on one grid are computed in row strips

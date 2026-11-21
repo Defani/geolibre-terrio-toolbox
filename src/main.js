@@ -5,7 +5,7 @@ import { createPane, h, fmtSec, RAIL_ICON } from "./ui.js";
 import { translate } from "./mapalgebra.js";
 
 const ID = "terrio-toolbox";
-const VERSION = "0.3.0";
+const VERSION = "0.3.1";
 const TERRIO_VERSION = "0.9.0";
 const PANEL = "terrio-toolbox-geoprocessing";
 const WASM_CDN = `https://cdn.jsdelivr.net/npm/terrio-js@${TERRIO_VERSION}/terrio_bg.wasm`;

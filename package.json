@@ -1,6 +1,6 @@
 {
   "name": "terrio-toolbox",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "ArcGIS Pro-style geoprocessing toolbox for GeoLibre, powered by terrio-js (WebAssembly)",
   "scripts": {
     "build": "node build.mjs",
