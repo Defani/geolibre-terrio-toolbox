@@ -97,7 +97,7 @@ await run("aspect", { raster: demUtm, out: "as" });
 await run("roughness", { raster: demUtm, index: "TRI", out: "tri" });
 await run("contour", { raster: demUtm, interval: 25, base: 0, field: "Contour", out: "ct" }, (r) => assert.ok(r.results[0].count > 10));
 await run("viewshed", { raster: dem, observer, oz: 1.7, tz: 0, md: 3000, out: "vs" });
-await run("raster_calculator", { A: demUtm, B: "", C: "", expr: "where(A > 1000, 1, 0)", out: "rc" });
+await run("raster_calculator", { expr: { expr: "where(A > 1000, 1, 0)", rasters: { A: demUtm } }, out: "rc" });
 await run("focal", { raster: demUtm, size: 5, method: "mean", out: "fo" });
 await run("reclassify", { raster: demUtm, mapping: "[0,500)=1\n[500,1000)=2\n[1000,inf)=3\nNO_DATA=NO_DATA", out: "rcl" });
 await run("zonal", { zones: aoiPoly, raster: dem, stats: "count,min,max,mean,sum,stdev", out: "z" }, (r) => {

@@ -352,8 +352,14 @@ export const TOOLS = [
       { name: "nodata", label: "NoData Value", type: "number", default: -9999 },
       OUT("{raster}_Clip"),
     ],
-    run(T, p) {
-      return [{ kind: "raster", name: p.out, ds: T.warp(p.raster, { cutline: p.clip, cropToCutline: true, dstNodata: p.nodata }) }];
+    run(T, p, ctx) {
+      // Read only the polygons' window first (a lazy, block-by-block read), then cut to their
+      // shape: warping a whole 46592 x 30783 Sentinel-2 tile at once does not fit in memory.
+      const e = p.clip.info(false, false).layers[0].extent;
+      const win = T.translate(p.raster, { projwin: [e[0], e[3], e[2], e[1]], projwinSrs: "EPSG:4326" });
+      const [ww, wh] = win.info(false, false).size;
+      ctx.log(`Read a ${ww} x ${wh} window around the clip features`);
+      return [{ kind: "raster", name: p.out, ds: T.warp(win, { cutline: p.clip, cropToCutline: true, dstNodata: p.nodata }) }];
     },
   },
   {
@@ -500,7 +506,20 @@ export const TOOLS = [
       OUT("{raster}_Viewshed"),
     ],
     run(T, p, ctx) {
-      const dem = ctx.projectedDem(p.raster);
+      let src = p.raster;
+      if (p.md > 0) {
+        // Only the cells within the maximum distance matter: read that window (faster, and
+        // a warped DEM's NaN margins stay out of it).
+        const [lon, lat] = ctx.firstPoint(p.observer, { epsg: 4326 });
+        const dLat = (p.md * 1.15) / 111320;
+        const dLon = dLat / Math.max(0.1, Math.cos((lat * Math.PI) / 180));
+        src = T.translate(src, { projwin: [lon - dLon, lat + dLat, lon + dLon, lat - dLat], projwinSrs: "EPSG:4326" });
+        ctx.log(`Read the ${p.md} m window around the observer`);
+      }
+      let dem = ctx.projectedDem(src);
+      // Viewshed refuses NaN cells (NoData, or the margins a warp leaves): make them very low
+      // ground, so they neither block nor add to the view.
+      dem = T.calc("where(isnan(A), -10000, A)", { A: dem }, { type: "Float32", nodata: "none" });
       const crs = dem.info(false, false).crs;
       const pt = ctx.firstPoint(p.observer, crs);
       ctx.log(`Observer: ${pt[0].toFixed(1)}, ${pt[1].toFixed(1)}`);
@@ -512,24 +531,19 @@ export const TOOLS = [
     name: "Raster Calculator",
     box: "spatial",
     set: "Map Algebra",
-    help: "Evaluates a map algebra expression on up to three rasters, named A, B and C, with NumPy syntax: (A - B) / (A + B), where(A > 500, 1, 0), log(A).",
+    help: 'Builds and runs a Map Algebra expression, as in ArcMap: rasters in double quotes, e.g. Float("b8" - "b4") / Float("b8" + "b4"), Con("dem" > 1000, 1, 0), SetNull("slope" > 45, "dem"). Double-click a layer or a function to add it. Integer rasters are computed as floating point.',
     params: [
-      { name: "A", label: "Raster A", type: "raster", required: true },
-      { name: "B", label: "Raster B (optional)", type: "raster" },
-      { name: "C", label: "Raster C (optional)", type: "raster" },
-      { name: "expr", label: "Expression", type: "text", required: true, default: "A * 1", placeholder: "(A - B) / (A + B)" },
-      OUT("Calc"),
+      { name: "expr", label: "Map Algebra expression", type: "mapalgebra", required: true, default: "" },
+      OUT("rastercalc"),
     ],
     run(T, p, ctx) {
-      const inputs = {};
-      let expr = p.expr;
-      for (const k of ["A", "B", "C"]) {
-        if (!p[k]) continue;
-        inputs[k] = p[k];
+      const inputs = p.expr.inputs;
+      let expr = p.expr.expr;
+      for (const k of Object.keys(inputs)) {
         // gdal_calc keeps integer types, so (A - B) / (A + B) on uint16 bands wraps and
         // truncates. Promote integer inputs inside the expression (block by block, no full
         // copy), as ArcGIS's Float() would, so indices like NDVI come out right.
-        const type = p[k].info(false, false).bands?.[0]?.data_type ?? "";
+        const type = inputs[k].info(false, false).bands?.[0]?.data_type ?? "";
         if (/Int|Byte/i.test(type)) {
           expr = expr.replace(new RegExp(`\\b${k}\\b`, "g"), `(${k}*1.0)`);
           ctx.log(`${k} is ${type}: computed as floating point so division is not truncated`);

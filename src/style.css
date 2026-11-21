@@ -483,3 +483,121 @@
 .tt-root .tt-ic {
   color: hsl(var(--foreground));
 }
+
+/* Raster Calculator (ArcMap layout) */
+.tt-calc-top {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.tt-calc-col {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.tt-calc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 26px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground));
+}
+.tt-calc-browse {
+  width: 24px;
+  height: 24px;
+}
+.tt-calc-list {
+  height: 150px;
+  overflow: auto;
+  padding: 2px 0;
+  border: 1px solid hsl(var(--input));
+  border-radius: var(--radius);
+  background: hsl(var(--background));
+}
+.tt-calc-group {
+  padding: 4px 8px 2px;
+  font-size: 11px;
+  font-weight: 600;
+  color: hsl(var(--muted-foreground));
+}
+.tt-calc-item {
+  padding: 2px 8px 2px 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: default;
+  user-select: none;
+}
+.tt-calc-col:first-child .tt-calc-item {
+  padding-inline-start: 8px;
+}
+.tt-calc-item:hover {
+  background: hsl(var(--accent));
+}
+.tt-calc-item.is-sel,
+.tt-calc-item:focus-visible {
+  outline: none;
+  background: hsl(var(--foreground));
+  color: hsl(var(--background));
+}
+.tt-muted {
+  color: hsl(var(--muted-foreground));
+}
+.tt-keys {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr) 1fr repeat(3, 1fr);
+  gap: 3px;
+  margin-top: 8px;
+}
+.tt-key {
+  height: 28px;
+  border: 1px solid hsl(var(--input));
+  border-radius: calc(var(--radius) - 2px);
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font: 500 13px ui-monospace, Consolas, monospace;
+  cursor: pointer;
+}
+.tt-key:hover {
+  background: hsl(var(--accent));
+}
+.tt-key:focus-visible {
+  outline: 2px solid hsl(var(--foreground));
+  outline-offset: 1px;
+}
+.tt-key-op {
+  background: hsl(var(--muted));
+}
+.tt-calc-help {
+  min-height: 32px;
+  margin: 6px 0;
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+}
+.tt-calc-expr {
+  min-height: 76px;
+}
+.tt-calc-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 18px;
+  margin-top: 4px;
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+}
+.tt-calc-status.is-ok,
+.tt-calc-status.is-bad {
+  color: hsl(var(--foreground));
+}
+.tt-calc-status .tt-ic {
+  width: 14px;
+  height: 14px;
+}
+.tt-pad {
+  padding: 4px 8px;
+}

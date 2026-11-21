@@ -33,8 +33,8 @@ function run(id, params) {
 console.log("inputs:");
 const b4 = file("b4.tif");
 const b8 = file("b8.tif");
-const ndvi = run("raster_calculator", { A: b8, B: b4, C: "", expr: "(A - B) / (A + B)", out: "NDVI" });
-const idx = run("raster_calculator", { A: b8, B: b4, C: "", expr: "where((A - B) / (A + B) > 0.4, 1, 0)", out: "vegetasi" });
+const ndvi = run("raster_calculator", { expr: { expr: "(A - B) / (A + B)", rasters: { A: b8, B: b4 } }, out: "NDVI" });
+const idx = run("raster_calculator", { expr: { expr: "where((A - B) / (A + B) > 0.4, 1, 0)", rasters: { A: b8, B: b4 } }, out: "vegetasi" });
 if (ndvi) run("reclassify", { raster: { filename: "ndvi.tif", bytes: ndvi.results[0].bytes.buffer }, mapping: "AUTO 5", out: "ndvi_kelas" });
 run("raster_to_ascii", { raster: b4, band: 1, decimals: "", out: "b4" });
 // a large DEM: DEMNAS Aceh warped to 5 m UTM

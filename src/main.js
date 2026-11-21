@@ -2,9 +2,10 @@
 // (pure-Rust GDAL-class geoprocessing compiled to WebAssembly) in a Web Worker.
 import { TOOLBOXES, TOOLS } from "./tools.js";
 import { createPane, h, fmtSec, RAIL_ICON } from "./ui.js";
+import { translate } from "./mapalgebra.js";
 
 const ID = "terrio-toolbox";
-const VERSION = "0.2.2";
+const VERSION = "0.3.0";
 const TERRIO_VERSION = "0.9.0";
 const PANEL = "terrio-toolbox-geoprocessing";
 const WASM_CDN = `https://cdn.jsdelivr.net/npm/terrio-js@${TERRIO_VERSION}/terrio_bg.wasm`;
@@ -251,6 +252,22 @@ function execute(tool, state, hooks = {}) {
             params[d.name].push(r);
             transfer.push(r.bytes);
           }
+        } else if (d.type === "mapalgebra") {
+          const { expr, rasters } = translate(String(v ?? ""));
+          const list = rasterLayers();
+          const byName = (n) => list.find((l) => l.name === n) ?? list.find((l) => l.name.replace(/\.[^.]+$/, "") === n.replace(/\.[^.]+$/, ""));
+          const inputs = {};
+          for (const [i, n] of rasters.entries()) {
+            const l = byName(n);
+            if (!l) throw new Error(`"${n}" is not a raster on the map. Double-click a name in Layers and variables, or add the file with the folder button.`);
+            const r = await rasterInput(l.key);
+            inputs["ABCDEFGHIJKLMNOPQRSTUVWXYZ"[i]] = r;
+            transfer.push(r.bytes);
+          }
+          log(`Map Algebra: ${v}`);
+          log(`terrio expression: ${expr}${rasters.length ? `  (${rasters.map((n, i) => `${"ABCDEFGHIJKLMNOPQRSTUVWXYZ"[i]} = "${n}"`).join(", ")})` : ""}`);
+          if (!rasters.length) throw new Error('The expression uses no raster: put a layer name in double quotes, e.g. "dem" * 2');
+          params[d.name] = { expr, rasters: inputs };
         } else params[d.name] = v;
       }
       const r = await call({ type: "run", tool: tool.id, params }, transfer, log);
@@ -263,6 +280,9 @@ function execute(tool, state, hooks = {}) {
       run.elapsed = performance.now() - t0;
       const msg = String(e.message ?? e);
       log(`ERROR: ${msg}`);
+      if (/too large/i.test(msg)) {
+        log("The raster is too large to process whole in the browser. Run Clip (Raster) with a polygon of your area first, then use the clipped raster.");
+      }
       if (/unreachable|memory|allocate/i.test(msg)) {
         // A WebAssembly memory panic leaves the module unusable: start a fresh engine next run.
         killWorker();

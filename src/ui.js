@@ -2,6 +2,7 @@
 // drawn in GeoLibre's own theme tokens (black and white, light and dark) with line icons.
 // Engine, layer and run helpers come from main.js through the `api` object.
 import { TOOLBOXES, TOOLS, fillName } from "./tools.js";
+import { FUNCTIONS, translate } from "./mapalgebra.js";
 
 // ------------------------------------------------------------------ icons (stroke = currentColor)
 const ic = (d, size = 16) => `<svg class="tt-ic" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
@@ -400,6 +401,8 @@ export function createPane(container, api) {
         });
         custom.addEventListener("input", () => (state[def.name] = custom.value.trim()));
         row.append(ctl, custom);
+      } else if (def.type === "mapalgebra") {
+        ctl = renderCalculator(row, def, state, id, () => renderParams(form, tool, state));
       } else if (def.type === "bool") {
         state[def.name] ??= def.default ?? false;
         ctl = h("input", { type: "checkbox", id, checked: state[def.name] });
@@ -421,6 +424,123 @@ export function createPane(container, api) {
       }
       form.append(row);
     }
+  }
+
+  /**
+   * ArcMap's Raster Calculator: Layers and variables, the operator keypad, Conditional / Math /
+   * Trigonometric functions, and the Map Algebra expression box. Double-click (or Enter) adds a
+   * layer or function at the cursor; a single click shows a function's description.
+   */
+  function renderCalculator(row, def, state, id, rerender) {
+    state[def.name] ??= def.default ?? "";
+    const wrap = h("div", { class: "tt-calc" });
+    const ta = h("textarea", { class: "tt-input tt-area tt-calc-expr", id, rows: "4", spellcheck: "false", placeholder: 'Float("b8" - "b4") / Float("b8" + "b4")' });
+    ta.value = state[def.name];
+    const status = h("div", { class: "tt-calc-status", role: "status" });
+    const help = h("div", { class: "tt-calc-help" }, "Double-click a layer or a function to add it to the expression.");
+    const validate = () => {
+      state[def.name] = ta.value;
+      if (!ta.value.trim()) {
+        status.className = "tt-calc-status";
+        status.textContent = "";
+        return;
+      }
+      try {
+        const { rasters } = translate(ta.value);
+        const known = new Set(api.rasterLayers().map((l) => l.name));
+        const knownStem = new Set([...known].map((n) => n.replace(/\.[^.]+$/, "")));
+        const missing = rasters.filter((n) => !known.has(n) && !knownStem.has(n.replace(/\.[^.]+$/, "")));
+        status.className = `tt-calc-status ${missing.length || !rasters.length ? "is-bad" : "is-ok"}`;
+        status.innerHTML = missing.length
+          ? `${ICON.err}<span>Not on the map: ${esc(missing.map((n) => `"${n}"`).join(", "))}</span>`
+          : rasters.length
+            ? `${ICON.ok}<span>Valid · uses ${esc(rasters.map((n) => `"${n}"`).join(", "))}</span>`
+            : `${ICON.err}<span>Put at least one raster in double quotes</span>`;
+      } catch (e) {
+        status.className = "tt-calc-status is-bad";
+        status.innerHTML = `${ICON.err}<span>${esc(e.message)}</span>`;
+      }
+    };
+    const insert = (text, caretBack = 0) => {
+      const start = ta.selectionStart ?? ta.value.length;
+      const end = ta.selectionEnd ?? start;
+      ta.value = ta.value.slice(0, start) + text + ta.value.slice(end);
+      const pos = start + text.length - caretBack;
+      ta.focus();
+      ta.setSelectionRange(pos, pos);
+      validate();
+    };
+    ta.addEventListener("input", validate);
+
+    // Layers and variables
+    const layersCol = h("div", { class: "tt-calc-col" });
+    const layersHead = h("div", { class: "tt-calc-head" }, "<span>Layers and variables</span>");
+    const browse = h("button", { class: "tt-iconbtn tt-calc-browse", type: "button", title: "Add a raster file", "aria-label": "Add a raster file" }, ICON.folder);
+    browse.addEventListener("click", () => api.pickRasterFile(() => rerender()));
+    layersHead.append(browse);
+    const layersList = h("div", { class: "tt-calc-list", role: "listbox", "aria-label": "Layers and variables" });
+    const layers = api.rasterLayers();
+    if (!layers.length) layersList.append(h("div", { class: "tt-hint tt-pad" }, "No raster on the map: use the folder."));
+    for (const l of layers) {
+      const item = h("div", { class: "tt-calc-item", role: "option", tabindex: "0", title: l.readable === false ? "GeoLibre keeps this local file to itself: add it with the folder" : `Add "${l.name}"` }, `${esc(l.name)}${l.readable === false ? ' <span class="tt-muted">(pick file)</span>' : ""}`);
+      const add = () => insert(`"${l.name}"`);
+      item.addEventListener("dblclick", add);
+      item.addEventListener("keydown", (e) => e.key === "Enter" && (e.preventDefault(), add()));
+      layersList.append(item);
+    }
+    layersCol.append(layersHead, layersList);
+
+    // Functions, grouped as ArcMap does
+    const fnCol = h("div", { class: "tt-calc-col" });
+    const fnList = h("div", { class: "tt-calc-list", role: "listbox", "aria-label": "Functions" });
+    for (const [group, fns] of Object.entries(FUNCTIONS)) {
+      fnList.append(h("div", { class: "tt-calc-group" }, esc(group)));
+      for (const [name, desc] of fns) {
+        const item = h("div", { class: "tt-calc-item", role: "option", tabindex: "0", title: desc }, esc(name));
+        const add = () => insert(`${name}()`, 1);
+        item.addEventListener("click", () => {
+          for (const x of fnList.querySelectorAll(".is-sel")) x.classList.remove("is-sel");
+          item.classList.add("is-sel");
+          help.textContent = desc;
+        });
+        item.addEventListener("dblclick", add);
+        item.addEventListener("keydown", (e) => e.key === "Enter" && (e.preventDefault(), add()));
+        fnList.append(item);
+      }
+    }
+    fnCol.append(h("div", { class: "tt-calc-head" }, "<span>Functions</span>"), fnList);
+
+    // keypad: digits and operators, laid out like ArcMap's
+    const keys = h("div", { class: "tt-keys", role: "group", "aria-label": "Operators" });
+    const KEYS = [
+      ["7", "8", "9", "/", "==", "!=", "&"],
+      ["4", "5", "6", "*", ">", ">=", "|"],
+      ["1", "2", "3", "-", "<", "<=", "^"],
+      ["0", ".", "(", ")", "+", "~", "⌫"],
+    ];
+    const TITLES = { "&": "Boolean And", "|": "Boolean Or", "^": "Boolean XOR", "~": "Boolean Not", "==": "Equal to", "!=": "Not equal to", "⌫": "Clear the expression" };
+    for (const rowKeys of KEYS) {
+      for (const k of rowKeys) {
+        const b = h("button", { class: `tt-key${/\d|\./.test(k) ? "" : " tt-key-op"}`, type: "button", title: TITLES[k] ?? k }, esc(k));
+        b.addEventListener("click", () => {
+          if (k === "⌫") {
+            ta.value = "";
+            validate();
+            ta.focus();
+            return;
+          }
+          insert(/^[\d.()]$/.test(k) ? k : k === "~" ? "~" : ` ${k} `);
+        });
+        keys.append(b);
+      }
+    }
+
+    const top = h("div", { class: "tt-calc-top" });
+    top.append(layersCol, fnCol);
+    wrap.append(top, keys, help, ta, status);
+    row.append(wrap);
+    validate();
+    return ta;
   }
 
   function renderFooter(foot, tool, state) {

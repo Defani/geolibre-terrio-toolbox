@@ -19,6 +19,31 @@ function tracked(terrio, made) {
   });
 }
 
+/** Whether a raster's grid lies inside longitude/latitude bounds with sub-degree cells. */
+function looksLikeDegrees(info) {
+  const e = info.extent;
+  const gt = info.geo_transform;
+  if (!e || !gt) return false;
+  return e[0] >= -180.5 && e[2] <= 180.5 && e[1] >= -90.5 && e[3] <= 90.5 && Math.abs(gt[1]) < 1 && Math.abs(gt[5]) < 1 && !(gt[0] === 0 && gt[3] === 0);
+}
+
+/**
+ * A raster without a coordinate system (DEMNAS tiles ship like this) is assumed to be WGS 84
+ * when its coordinates are plainly degrees. Without it GeoLibre cannot place the result
+ * ("Unsupported GeoTIFF model type: null") and slope/hillshade would not know the cells are
+ * degrees. Anything else is left as it is.
+ */
+function withCrs(T, ds, name, log) {
+  const info = ds.info(false, false);
+  if (info.type !== "raster" || info.crs?.wkt || info.crs?.epsg) return ds;
+  if (!looksLikeDegrees(info)) {
+    log(`WARNING: ${name} has no coordinate system; GeoLibre may not be able to place it. Use Define Projection.`);
+    return ds;
+  }
+  log(`${name} has no coordinate system: its coordinates are degrees, so WGS 84 (EPSG:4326) is assumed`);
+  return T.translate(ds, { aSrs: "EPSG:4326" });
+}
+
 export function runTool(terrio, toolId, params, log = () => {}) {
   const tool = TOOLS.find((t) => t.id === toolId);
   if (!tool) throw new Error(`Unknown tool ${toolId}`);
@@ -36,9 +61,14 @@ export function runTool(terrio, toolId, params, log = () => {}) {
         continue;
       }
       if (def.type === "fc") p[def.name] = T.fromGeoJSON(v.geojson, v.name.replace(/[^\w]+/g, "_") || "layer", "EPSG:4326");
-      else if (def.type === "raster") p[def.name] = T.open(new Uint8Array(v.bytes), v.filename);
-      else if (def.type === "rasters") p[def.name] = v.map((r) => T.open(new Uint8Array(r.bytes), r.filename));
-      else if (def.type === "number") p[def.name] = Number(v);
+      else if (def.type === "raster") p[def.name] = withCrs(T, T.open(new Uint8Array(v.bytes), v.filename), v.filename, log);
+      else if (def.type === "rasters") p[def.name] = v.map((r) => withCrs(T, T.open(new Uint8Array(r.bytes), r.filename), r.filename, log));
+      else if (def.type === "mapalgebra") {
+        // { expr: terrio expression, rasters: { A: { filename, bytes }, ... } } from the UI
+        const inputs = {};
+        for (const [k, r] of Object.entries(v.rasters)) inputs[k] = withCrs(T, T.open(new Uint8Array(r.bytes), r.filename), r.filename, log);
+        p[def.name] = { expr: v.expr, inputs };
+      } else if (def.type === "number") p[def.name] = Number(v);
       else p[def.name] = v;
     }
     const tOpen = performance.now();
@@ -51,6 +81,7 @@ export function runTool(terrio, toolId, params, log = () => {}) {
         const geojson = ctx.toWGS(o.ds);
         results.push({ kind: "vector", name: o.name, geojson, count: geojson.features.length });
       } else if (o.kind === "raster") {
+        o.ds = withCrs(T, o.ds, o.name, log);
         const info = o.ds.info(false, false);
         // DEFLATE takes ~4x longer than the processing itself on very large rasters (50 s for a
         // 120-million-cell Sentinel-2 tile): write those uncompressed (13 s).

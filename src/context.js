@@ -25,6 +25,8 @@ export function makeContext(T, log) {
   /** Longitude/latitude of a dataset's center. */
   const centerLonLat = (ds) => {
     const info = ds.info(false, false);
+    const crsOf = info.type === "raster" ? info.crs : info.layers?.[0]?.crs;
+    if (!crsString(crsOf)) throw new Error("The input has no coordinate system. Set one with Define Projection first.");
     if (info.type === "raster") {
       const e = info.extent;
       const [cx, cy] = [(e[0] + e[2]) / 2, (e[1] + e[3]) / 2];
