@@ -1,10 +1,10 @@
 {
   "name": "terrio-toolbox",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "ArcGIS Pro-style geoprocessing toolbox for GeoLibre, powered by terrio-js (WebAssembly)",
   "scripts": {
     "build": "node build.mjs",
-    "test": "node test/tools.test.mjs && node test/mapalgebra.test.mjs",
+    "test": "node test/tools.test.mjs && node test/mapalgebra.test.mjs && node test/indices.test.mjs",
     "test:real": "node --max-old-space-size=8192 test/real.test.mjs",
     "bench": "node test/bench.mjs"
   },

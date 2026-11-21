@@ -3,6 +3,21 @@
 // Engine, layer and run helpers come from main.js through the `api` object.
 import { TOOLBOXES, TOOLS, fillName } from "./tools.js";
 import { FUNCTIONS, translate } from "./mapalgebra.js";
+import { INDEXES, BAND_HINT, guessBand } from "./indices.js";
+
+const OPS = [
+  [">", "greater than", "gt"],
+  [">=", "greater or equal", "ge"],
+  ["<", "less than", "lt"],
+  ["<=", "less or equal", "le"],
+  ["==", "equal to", "eq"],
+  ["!=", "not equal to", "ne"],
+];
+const KEEP = [
+  ["both", "True = 1, False = 0"],
+  ["true", "True only (1), False = NoData"],
+  ["value", "True only, keep the raster's values"],
+];
 
 // ------------------------------------------------------------------ icons (stroke = currentColor)
 const ic = (d, size = 16) => `<svg class="tt-ic" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
@@ -322,19 +337,22 @@ export function createPane(container, api) {
         line.append(ctl);
         if (def.type === "raster") {
           const browse = h("button", { class: "tt-iconbtn tt-browse", type: "button", title: "Browse for a raster file", "aria-label": `Browse for ${def.label}` }, ICON.folder);
-          browse.addEventListener("click", () =>
+          browse.addEventListener("click", () => {
+            const cur = list.find((l) => l.key === state[def.name]);
+            const forLayer = cur?.readable === false ? cur : null;
             api.pickRasterFile((f) => {
-              state[def.name] = f.key;
+              // a file picked for a local layer stands in for it, so the layer stays selected
+              state[def.name] = forLayer ? forLayer.key : f.key;
               refreshOut();
               renderParams(form, tool, state);
-            }),
-          );
+            }, forLayer);
+          });
           line.append(browse);
         }
         row.append(line);
         const chosen = list.find((l) => l.key === state[def.name]);
         if (!list.length) row.append(h("div", { class: "tt-hint" }, def.type === "fc" ? `No ${def.geom ?? "feature"} layer on the map.` : "No raster on the map: use the folder to pick a file."));
-        else if (chosen?.readable === false) row.append(h("div", { class: "tt-hint" }, "GeoLibre keeps this local file to itself: click the folder and pick the same file."));
+        else if (chosen?.readable === false) row.append(h("div", { class: "tt-hint" }, "GeoLibre does not share this local file with plugins: click the folder and choose the same file once."));
       } else if (def.type === "rasters" || (def.type === "field" && def.multi)) {
         const items = def.type === "rasters" ? api.rasterLayers().map((l) => [l.key, l.name]) : api.fieldsOf(state[def.of], def.numeric).map((f) => [f, f]);
         const sel = new Set(state[def.name] ?? []);
@@ -402,7 +420,13 @@ export function createPane(container, api) {
         custom.addEventListener("input", () => (state[def.name] = custom.value.trim()));
         row.append(ctl, custom);
       } else if (def.type === "mapalgebra") {
-        ctl = renderCalculator(row, def, state, id, () => renderParams(form, tool, state));
+        const setOut = (name) => {
+          if (state.outEdited || !name) return;
+          state.out = name;
+          const el = form.querySelector('[data-param="out"]');
+          if (el) el.value = name;
+        };
+        ctl = renderCalculator(row, def, state, id, () => renderParams(form, tool, state), setOut);
       } else if (def.type === "bool") {
         state[def.name] ??= def.default ?? false;
         ctl = h("input", { type: "checkbox", id, checked: state[def.name] });
@@ -431,7 +455,7 @@ export function createPane(container, api) {
    * Trigonometric functions, and the Map Algebra expression box. Double-click (or Enter) adds a
    * layer or function at the cursor; a single click shows a function's description.
    */
-  function renderCalculator(row, def, state, id, rerender) {
+  function renderCalculator(row, def, state, id, rerender, setOut = () => {}) {
     state[def.name] ??= def.default ?? "";
     const wrap = h("div", { class: "tt-calc" });
     const ta = h("textarea", { class: "tt-input tt-area tt-calc-expr", id, rows: "4", spellcheck: "false", placeholder: 'Float("b8" - "b4") / Float("b8" + "b4")' });
@@ -450,6 +474,24 @@ export function createPane(container, api) {
         const known = new Set(api.rasterLayers().map((l) => l.name));
         const knownStem = new Set([...known].map((n) => n.replace(/\.[^.]+$/, "")));
         const missing = rasters.filter((n) => !known.has(n) && !knownStem.has(n.replace(/\.[^.]+$/, "")));
+        const stemOf = (n) => n.replace(/\.[^.]+$/, "").toLowerCase();
+        const all = api.rasterLayers();
+        const local = missing.length
+          ? []
+          : rasters
+              .map((n) => all.filter((l) => l.name === n || stemOf(l.name) === stemOf(n)))
+              .filter((hits) => hits.length && !hits.some((l) => l.readable !== false))
+              .map((hits) => hits[0]);
+        if (local.length) {
+          status.className = "tt-calc-status is-bad";
+          status.innerHTML = `${ICON.err}<span>${esc(local.map((l) => `"${l.name}"`).join(", "))}: GeoLibre does not share local files with plugins. Choose ${local.length > 1 ? "them" : "it"} once:</span>`;
+          for (const l of local) {
+            const b = h("button", { class: "tt-btn tt-btn-sm", type: "button" }, `${ICON.folder}<span>${esc(l.name)}…</span>`);
+            b.addEventListener("click", () => api.pickRasterFile(() => rerender(), l));
+            status.append(b);
+          }
+          return;
+        }
         status.className = `tt-calc-status ${missing.length || !rasters.length ? "is-bad" : "is-ok"}`;
         status.innerHTML = missing.length
           ? `${ICON.err}<span>Not on the map: ${esc(missing.map((n) => `"${n}"`).join(", "))}</span>`
@@ -475,15 +517,17 @@ export function createPane(container, api) {
     // Layers and variables
     const layersCol = h("div", { class: "tt-calc-col" });
     const layersHead = h("div", { class: "tt-calc-head" }, "<span>Layers and variables</span>");
-    const browse = h("button", { class: "tt-iconbtn tt-calc-browse", type: "button", title: "Add a raster file", "aria-label": "Add a raster file" }, ICON.folder);
+    const browse = h("button", { class: "tt-btn tt-btn-sm tt-calc-browse", type: "button", title: "Add a raster file from your computer", "aria-label": "Add a raster file" }, `${ICON.folder}<span>Browse…</span>`);
     browse.addEventListener("click", () => api.pickRasterFile(() => rerender()));
     layersHead.append(browse);
     const layersList = h("div", { class: "tt-calc-list", role: "listbox", "aria-label": "Layers and variables" });
     const layers = api.rasterLayers();
     if (!layers.length) layersList.append(h("div", { class: "tt-hint tt-pad" }, "No raster on the map: use the folder."));
     for (const l of layers) {
-      const item = h("div", { class: "tt-calc-item", role: "option", tabindex: "0", title: l.readable === false ? "GeoLibre keeps this local file to itself: add it with the folder" : `Add "${l.name}"` }, `${esc(l.name)}${l.readable === false ? ' <span class="tt-muted">(pick file)</span>' : ""}`);
+      const local = l.readable === false;
+      const item = h("div", { class: `tt-calc-item${local ? " is-local" : ""}`, role: "option", tabindex: "0", title: local ? `Click to choose the file behind "${l.name}" (GeoLibre does not share local files with plugins)` : `Double-click to add "${l.name}"` }, `${local ? `<span class="tt-pick">${ICON.folder}pick file</span>` : ""}${esc(l.name)}`);
       const add = () => insert(`"${l.name}"`);
+      if (local) item.addEventListener("click", () => api.pickRasterFile(() => rerender(), l));
       item.addEventListener("dblclick", add);
       item.addEventListener("keydown", (e) => e.key === "Enter" && (e.preventDefault(), add()));
       layersList.append(item);
@@ -537,10 +581,148 @@ export function createPane(container, api) {
 
     const top = h("div", { class: "tt-calc-top" });
     top.append(layersCol, fnCol);
-    wrap.append(top, keys, help, ta, status);
+    const exprPane = h("div", { class: "tt-calc-pane" });
+    exprPane.append(top, keys, help);
+
+    // Expression | Index | Threshold: the last two write the expression for you
+    state.calcMode ??= "expression";
+    const set = (text) => {
+      ta.value = text;
+      validate();
+    };
+    const modes = h("div", { class: "tt-seg", role: "tablist", "aria-label": "Calculator mode" });
+    for (const [m, label] of [["expression", "Expression"], ["index", "Index"], ["threshold", "Threshold"]]) {
+      const b = h("button", { class: `tt-seg-btn${state.calcMode === m ? " is-active" : ""}`, type: "button", role: "tab", "aria-selected": String(state.calcMode === m) }, label);
+      b.addEventListener("click", () => {
+        state.calcMode = m;
+        rerender();
+      });
+      modes.append(b);
+    }
+    const pane =
+      state.calcMode === "index"
+        ? renderIndexPane(state, layers, set, setOut, rerender)
+        : state.calcMode === "threshold"
+          ? renderThresholdPane(state, layers, set, setOut)
+          : exprPane;
+    wrap.append(modes, pane, ta, status);
     row.append(wrap);
     validate();
     return ta;
+  }
+
+  /** A raster picker for the Index and Threshold panes (local files are marked). */
+  function rasterSelect(layers, value, onChange, label) {
+    const sel = h("select", { class: "tt-input", "aria-label": label });
+    sel.append(h("option", { value: "" }, ""));
+    for (const l of layers) sel.append(h("option", { value: l.name }, esc(l.readable === false ? `${l.name} (pick file)` : l.name)));
+    sel.value = value ?? "";
+    sel.addEventListener("change", () => onChange(sel.value));
+    return sel;
+  }
+  function field(label, ctl, hint) {
+    const f = h("div", { class: "tt-calc-field" });
+    f.append(h("label", { class: "tt-label" }, esc(label)), ctl);
+    if (hint) f.append(h("div", { class: "tt-hint" }, esc(hint)));
+    return f;
+  }
+
+  function renderIndexPane(state, layers, set, setOut, rerender) {
+    const p = h("div", { class: "tt-calc-pane tt-calc-form" });
+    state.calcIndex ??= "ndvi";
+    state.calcBands ??= {};
+    const ix = INDEXES.find((x) => x.id === state.calcIndex) ?? INDEXES[0];
+    const pick = h("select", { class: "tt-input", "aria-label": "Index" });
+    for (const x of INDEXES) pick.append(h("option", { value: x.id }, esc(x.name)));
+    pick.value = ix.id;
+    pick.addEventListener("change", () => {
+      state.calcIndex = pick.value;
+      rerender();
+    });
+    p.append(field("Index", pick), h("div", { class: "tt-calc-formula" }, esc(ix.formula)));
+    const bands = state.calcBands;
+    for (const role of ix.bands) {
+      bands[role] ||= guessBand(role, layers);
+      const sel = rasterSelect(layers, bands[role], (v) => {
+        bands[role] = v;
+        build();
+      }, `${role} band`);
+      p.append(field(`${role} band`, sel, BAND_HINT[role]));
+    }
+    if (ix.scaled) {
+      state.calcScale ??= "1";
+      const sc = h("input", { class: "tt-input", type: "text", inputmode: "decimal", value: state.calcScale, "aria-label": "Reflectance scale" });
+      sc.addEventListener("input", () => {
+        state.calcScale = sc.value.trim();
+        build();
+      });
+      p.append(field("Reflectance scale", sc, "1 when bands are reflectance 0-1; 0.0001 for Sentinel-2 L2A digital numbers (0-10000)."));
+    }
+    if (ix.L) {
+      state.calcL ??= "0.5";
+      const L = h("input", { class: "tt-input", type: "text", inputmode: "decimal", value: state.calcL, "aria-label": "Soil factor L" });
+      L.addEventListener("input", () => {
+        state.calcL = L.value.trim();
+        build();
+      });
+      p.append(field("Soil factor L", L, "0.5 for most land; 0 gives NDVI, 1 for very sparse vegetation."));
+    }
+    function build() {
+      if (ix.bands.some((r) => !bands[r])) return set("");
+      const q = (r) => `"${bands[r]}"`;
+      set(ix.expr(q, { scale: Number(state.calcScale || 1) || 1, L: Number(state.calcL ?? 0.5) }));
+      setOut(ix.id);
+    }
+    build();
+    return p;
+  }
+
+  function renderThresholdPane(state, layers, set, setOut) {
+    const p = h("div", { class: "tt-calc-pane tt-calc-form" });
+    const t = (state.calcThr ??= { raster: layers.find((l) => l.readable !== false)?.name ?? layers[0]?.name ?? "", op: ">", value: "", keep: "both" });
+    const op = h("select", { class: "tt-input", "aria-label": "Operator" });
+    for (const [o, name] of OPS) op.append(h("option", { value: o }, esc(`${o}  ${name}`)));
+    op.value = t.op;
+    op.addEventListener("change", () => {
+      t.op = op.value;
+      build();
+    });
+    const val = h("input", { class: "tt-input", type: "text", inputmode: "decimal", value: t.value, placeholder: "e.g. 0.4", "aria-label": "Value" });
+    val.addEventListener("input", () => {
+      t.value = val.value.trim();
+      build();
+    });
+    const line = h("div", { class: "tt-calc-thr" });
+    line.append(field("Operator", op), field("Value", val));
+    const ras = rasterSelect(layers, t.raster, (v) => {
+      t.raster = v;
+      build();
+    }, "Raster");
+    p.append(field("Raster", ras), line);
+    const keep = h("div", { class: "tt-calc-keep", role: "radiogroup", "aria-label": "Output" });
+    for (const [k, label] of KEEP) {
+      const rid = `tt-keep-${k}`;
+      const r = h("input", { type: "radio", name: "tt-keep", id: rid, value: k, checked: t.keep === k });
+      r.addEventListener("change", () => {
+        t.keep = k;
+        build();
+      });
+      const lab = h("label", { class: "tt-check", for: rid });
+      lab.append(r, document.createTextNode(label));
+      keep.append(lab);
+    }
+    p.append(field("Output", keep));
+    function build() {
+      if (!t.raster || t.value === "" || !Number.isFinite(Number(t.value))) return set("");
+      const r = `"${t.raster}"`;
+      const cond = `${r} ${t.op} ${Number(t.value)}`;
+      set(t.keep === "both" ? `Con(${cond}, 1, 0)` : t.keep === "true" ? `Con(${cond}, 1)` : `Con(${cond}, ${r})`);
+      const word = OPS.find(([o]) => o === t.op)?.[2] ?? "thr";
+      const stem = t.raster.replace(/\.[^.]+$/, "");
+      setOut(`${stem}_${word}_${String(t.value).replace("-", "m").replace(".", "_")}`.replace(/[^\w]+/g, "_"));
+    }
+    build();
+    return p;
   }
 
   function renderFooter(foot, tool, state) {

@@ -5,7 +5,7 @@ import { createPane, h, fmtSec, RAIL_ICON } from "./ui.js";
 import { translate } from "./mapalgebra.js";
 
 const ID = "terrio-toolbox";
-const VERSION = "0.3.1";
+const VERSION = "0.4.0";
 const TERRIO_VERSION = "0.9.0";
 const PANEL = "terrio-toolbox-geoprocessing";
 const WASM_CDN = `https://cdn.jsdelivr.net/npm/terrio-js@${TERRIO_VERSION}/terrio_bg.wasm`;
@@ -22,6 +22,7 @@ const S = {
   pending: new Map(),
   history: [],
   files: [], // rasters picked with Browse: { key, name, bytes }
+  links: new Map(), // local raster layer id -> key of the picked file that stands for it
   rasterOut: new Map(), // GeoLibre layer id -> { name, bytes } of rasters this plugin added
   pane: null,
   pendingTool: null,
@@ -140,16 +141,26 @@ function vectorLayers(geom) {
  * to be picked with Browse; rasters this plugin made, and rasters added from a URL, read directly.
  */
 function rasterLayers() {
-  const files = S.files.map((f) => ({ key: f.key, name: f.name, file: f, readable: true }));
   const layers = snapshotLayers()
     .filter((l) => l.type === "cog")
     .map((l) => {
       const own = S.rasterOut.get(l.id);
       const src = typeof l.source?.url === "string" && /^(https?|blob):/.test(l.source.url) ? l.source.url : "";
       const url = l.metadata?.localBytesUrl || src;
-      return { key: `L:${l.id}`, id: l.id, name: l.name, url, own, readable: !!(own || url) };
+      // A local file the user picked for this layer (same file name, or picked from its entry)
+      const file = own || url ? null : linkedFile(l);
+      return { key: `L:${l.id}`, id: l.id, name: l.name, url, own, file, readable: !!(own || url || file) };
     });
+  const linked = new Set(layers.map((l) => l.file).filter(Boolean));
+  const files = S.files.filter((f) => !linked.has(f)).map((f) => ({ key: f.key, name: f.name, file: f, readable: true }));
   return [...layers, ...files];
+}
+
+const stem = (n) => String(n).replace(/\.[^.]+$/, "").toLowerCase();
+/** The picked file that stands for a local raster layer GeoLibre does not share. */
+function linkedFile(layer) {
+  const id = S.links.get(layer.id);
+  return S.files.find((f) => f.key === id) ?? S.files.find((f) => stem(f.name) === stem(layer.name)) ?? null;
 }
 
 function fieldsOf(layerKey, numeric) {
@@ -183,20 +194,22 @@ async function rasterInput(key) {
   const l = rasterLayers().find((r) => r.key === key);
   if (!l) throw new Error("The raster layer is no longer on the map");
   if (l.own) return { filename: `${l.own.name.replace(/[^\w.-]+/g, "_")}.tif`, bytes: l.own.bytes.slice().buffer };
-  if (!l.url) throw new Error(`GeoLibre does not share the file behind "${l.name}" with plugins. Click the folder button and pick the same file.`);
+  if (l.file) return { filename: l.file.name.replace(/[^\w.-]+/g, "_"), bytes: l.file.bytes.slice().buffer };
+  if (!l.url) throw new Error(`GeoLibre does not share the file behind "${l.name}" with plugins. Click "${l.name} (pick file)" and choose the same file once; it is then remembered for this session.`);
   const res = await fetch(l.url);
   if (!res.ok) throw new Error(`Could not read ${l.name} (${res.status})`);
   const name = /\.(tiff?|img|asc|jp2|nc|vrt|png|jpg)$/i.test(l.name) ? l.name : `${l.name}.tif`;
   return { filename: name.replace(/[^\w.-]+/g, "_"), bytes: await res.arrayBuffer() };
 }
 
-function pickRasterFile(done) {
+function pickRasterFile(done, forLayer) {
   const input = h("input", { type: "file", accept: ".tif,.tiff,.img,.asc,.jp2,.nc,.vrt,.hgt,.dem,.bil,.envi,.grd,.png,.jpg" });
   input.addEventListener("change", async () => {
     const file = input.files?.[0];
     if (!file) return;
     const f = { key: `F:${Date.now()}:${file.name}`, name: file.name, bytes: new Uint8Array(await file.arrayBuffer()) };
     S.files.push(f);
+    if (forLayer?.id) S.links.set(forLayer.id, f.key);
     done(f);
   });
   input.click();
@@ -255,7 +268,10 @@ function execute(tool, state, hooks = {}) {
         } else if (d.type === "mapalgebra") {
           const { expr, rasters } = translate(String(v ?? ""));
           const list = rasterLayers();
-          const byName = (n) => list.find((l) => l.name === n) ?? list.find((l) => l.name.replace(/\.[^.]+$/, "") === n.replace(/\.[^.]+$/, ""));
+          const byName = (n) => {
+            const hits = list.filter((l) => l.name === n || stem(l.name) === stem(n));
+            return hits.find((l) => l.readable) ?? hits[0];
+          };
           const inputs = {};
           for (const [i, n] of rasters.entries()) {
             const l = byName(n);
@@ -264,7 +280,7 @@ function execute(tool, state, hooks = {}) {
             inputs["ABCDEFGHIJKLMNOPQRSTUVWXYZ"[i]] = r;
             transfer.push(r.bytes);
           }
-          log(`Map Algebra: ${v}`);
+          log(`Expression: ${v}`);
           log(`terrio expression: ${expr}${rasters.length ? `  (${rasters.map((n, i) => `${"ABCDEFGHIJKLMNOPQRSTUVWXYZ"[i]} = "${n}"`).join(", ")})` : ""}`);
           if (!rasters.length) throw new Error('The expression uses no raster: put a layer name in double quotes, e.g. "dem" * 2');
           params[d.name] = { expr, rasters: inputs };

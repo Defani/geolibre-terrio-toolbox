@@ -107,6 +107,30 @@ function splitArgs(s) {
  * @throws {Error} on unbalanced parentheses or quotes, a wrong number of arguments, or more
  *   than 26 rasters.
  */
+/**
+ * Two values side by side with nothing between them ("b8"."b4", "a" "b", "a" 2) are a typo
+ * that NumPy syntax would either reject with a cryptic message or, for ".", read as an
+ * attribute. Say which two values need an operator.
+ */
+function checkOperators(expression) {
+  const TOKEN = /"[^"]*"|(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?|[A-Za-z_]\w*|==|!=|>=|<=|\*\*|\S/g;
+  const toks = expression.match(TOKEN) ?? [];
+  const show = (t) => (t.startsWith('"') ? t : `"${t}"`);
+  const isValue = (t) => t.startsWith('"') || /^[\d.]/.test(t) && t !== "." || /^[A-Za-z_]/.test(t);
+  for (let i = 0; i < toks.length; i++) {
+    const t = toks[i];
+    if (t === ".") {
+      const prev = toks[i - 1], next = toks[i + 1];
+      throw new Error(`"." is not an operator${prev && next ? ` (between ${show(prev)} and ${show(next)})` : ""}: use - + * / or another operator`);
+    }
+    const next = toks[i + 1];
+    if (!next) break;
+    const ends = isValue(t) && !(/^[A-Za-z_]/.test(t) && next === "(") || t === ")";
+    const starts = isValue(next) || next === "(";
+    if (ends && starts) throw new Error(`Missing operator between ${show(t)} and ${show(next)}`);
+  }
+}
+
 export function translate(expression) {
   const rasters = [];
   const letterOf = (name) => {
@@ -119,6 +143,7 @@ export function translate(expression) {
     return LETTERS[i];
   };
   if ((expression.match(/"/g) ?? []).length % 2) throw new Error("A raster name is missing its closing quote");
+  checkOperators(expression);
 
   function walk(s) {
     let out = "";

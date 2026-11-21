@@ -49,6 +49,9 @@ check("errors are readable", () => {
   assert.throws(() => translate('"a" + "b'), /closing quote/);
   assert.throws(() => translate('Sin("a"'), /Missing "\)"/);
   assert.throws(() => translate(""), /empty/);
+  assert.throws(() => translate('Float("S2A_B4.tif"."S2A_B4.tif")'), /"\." is not an operator \(between "S2A_B4\.tif" and "S2A_B4\.tif"\)/);
+  assert.throws(() => translate('"a" "b"'), /Missing operator between "a" and "b"/);
+  assert.doesNotThrow(() => translate('-"a" * 2.5e3 + Con(IsNull("d"), 0, "d")'));
 });
 
 // --- run the translations on a real DEM (DEMNAS Aceh 50x50, metres) and compare cell values

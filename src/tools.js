@@ -10,14 +10,14 @@
 // run(T, p, ctx) returns outputs: { kind: "vector"|"raster"|"file"|"table", name, ds | bytes | rows }.
 
 export const TOOLBOXES = [
-  { id: "analysis", name: "Analysis Tools", sets: ["Extract", "Overlay", "Proximity"] },
-  { id: "conversion", name: "Conversion Tools", sets: ["From Raster", "To Raster", "To File"] },
+  { id: "analysis", name: "Vector Analysis", sets: ["Extract", "Overlay", "Proximity"] },
+  { id: "conversion", name: "Convert & Export", sets: ["Raster to Vector & File", "Vector to Raster", "Export Vector"] },
   {
     id: "management",
-    name: "Data Management Tools",
-    sets: ["Features", "Generalization", "Projections and Transformations", "Raster"],
+    name: "Data Preparation",
+    sets: ["Geometry", "Simplify & Merge", "Coordinate Systems", "Raster Prep"],
   },
-  { id: "spatial", name: "Spatial Analyst Tools", sets: ["Surface", "Map Algebra", "Neighborhood", "Reclass", "Zonal", "Distance"] },
+  { id: "spatial", name: "Raster Analysis", sets: ["Terrain", "Raster Math", "Focal", "Classify", "Zonal", "Distance"] },
 ];
 
 const OUT = (def) => ({ name: "out", label: "Output layer name", type: "text", required: true, default: def });
@@ -129,7 +129,7 @@ export const TOOLS = [
     id: "raster_to_polygon",
     name: "Raster to Polygon",
     box: "conversion",
-    set: "From Raster",
+    set: "Raster to Vector & File",
     help: "Converts a raster band to polygons of connected cells with the same value.",
     params: [
       { name: "raster", label: "Input raster", type: "raster", required: true },
@@ -144,9 +144,9 @@ export const TOOLS = [
   },
   {
     id: "raster_to_ascii",
-    name: "Raster To ASCII",
+    name: "Raster to ASCII Grid",
     box: "conversion",
-    set: "From Raster",
+    set: "Raster to Vector & File",
     help: "Writes a raster band to an Esri ASCII grid (.asc): a header (ncols, nrows, xllcorner, yllcorner, cellsize, NODATA_value) followed by the cell values row by row. A .prj with the coordinate system is saved next to it.",
     params: [
       { name: "raster", label: "Input raster", type: "raster", required: true },
@@ -169,9 +169,9 @@ export const TOOLS = [
   },
   {
     id: "raster_to_file",
-    name: "Raster To Other Format",
+    name: "Export Raster",
     box: "conversion",
-    set: "From Raster",
+    set: "Raster to Vector & File",
     help: "Saves a raster to a file in another format, optionally reprojected.",
     params: [
       { name: "raster", label: "Input raster", type: "raster", required: true },
@@ -187,9 +187,9 @@ export const TOOLS = [
   },
   {
     id: "feature_to_raster",
-    name: "Feature to Raster",
+    name: "Vector to Raster",
     box: "conversion",
-    set: "To Raster",
+    set: "Vector to Raster",
     help: "Burns features into a raster from a numeric field. The cell size is in meters: the features are projected to their UTM zone first.",
     params: [
       { name: "input", label: "Input features", type: "fc", required: true },
@@ -206,9 +206,9 @@ export const TOOLS = [
   },
   {
     id: "feature_to_file",
-    name: "Feature Class To File",
+    name: "Export Features",
     box: "conversion",
-    set: "To File",
+    set: "Export Vector",
     help: "Saves a feature layer to a file: GeoPackage, Shapefile, GeoParquet, FlatGeobuf, KML/KMZ, DXF, CSV and more, optionally reprojected.",
     params: [
       { name: "input", label: "Input Features", type: "fc", required: true },
@@ -245,7 +245,7 @@ export const TOOLS = [
     id: "repair",
     name: "Repair Geometry",
     box: "management",
-    set: "Features",
+    set: "Geometry",
     help: "Repairs invalid geometries (self-intersections, bad rings), keeping attributes.",
     params: [{ name: "input", label: "Input Features", type: "fc", required: true }, OUT("{input}_Repaired")],
     run(T, p) {
@@ -254,9 +254,9 @@ export const TOOLS = [
   },
   {
     id: "singlepart",
-    name: "Multipart To Singlepart",
+    name: "Explode Multipart",
     box: "management",
-    set: "Features",
+    set: "Geometry",
     help: "Splits multipart features into one feature per part.",
     params: [{ name: "input", label: "Input Features", type: "fc", required: true }, OUT("{input}_Singlepart")],
     run(T, p) {
@@ -265,9 +265,9 @@ export const TOOLS = [
   },
   {
     id: "convex_hull",
-    name: "Minimum Bounding Geometry",
+    name: "Bounding Geometry",
     box: "management",
-    set: "Features",
+    set: "Geometry",
     help: "The convex hull of each feature.",
     params: [{ name: "input", label: "Input Features", type: "fc", required: true }, OUT("{input}_Hull")],
     run(T, p) {
@@ -278,7 +278,7 @@ export const TOOLS = [
     id: "dissolve",
     name: "Dissolve",
     box: "management",
-    set: "Generalization",
+    set: "Simplify & Merge",
     help: "Merges features that share the values of the dissolve fields. With no field, all features merge into one.",
     params: [
       { name: "input", label: "Input Features", type: "fc", required: true },
@@ -293,7 +293,7 @@ export const TOOLS = [
     id: "simplify",
     name: "Simplify",
     box: "management",
-    set: "Generalization",
+    set: "Simplify & Merge",
     help: "Topology-preserving simplification of lines and polygons. The tolerance is in meters.",
     params: [
       { name: "input", label: "Input Features", type: "fc", required: true },
@@ -308,7 +308,7 @@ export const TOOLS = [
     id: "define_projection",
     name: "Define Projection",
     box: "management",
-    set: "Projections and Transformations",
+    set: "Coordinate Systems",
     help: "Sets the coordinate system a raster's coordinates are in, without moving any cell. Use it when a raster is labelled with the wrong coordinate system (e.g. degrees labelled as UTM).",
     params: [
       { name: "raster", label: "Input raster", type: "raster", required: true },
@@ -323,7 +323,7 @@ export const TOOLS = [
     id: "project_raster",
     name: "Project Raster",
     box: "management",
-    set: "Projections and Transformations",
+    set: "Coordinate Systems",
     help: "Reprojects a raster to another coordinate system. Leave the cell size empty to keep the resolution.",
     params: [
       { name: "raster", label: "Input raster", type: "raster", required: true },
@@ -344,7 +344,7 @@ export const TOOLS = [
     id: "clip_raster",
     name: "Clip (Raster)",
     box: "management",
-    set: "Raster",
+    set: "Raster Prep",
     help: "Cuts a raster to the shape of polygon features. Cells outside the polygons become NoData and the extent shrinks to the polygons.",
     params: [
       { name: "raster", label: "Input Raster", type: "raster", required: true },
@@ -364,9 +364,9 @@ export const TOOLS = [
   },
   {
     id: "mosaic",
-    name: "Mosaic To New Raster",
+    name: "Mosaic Rasters",
     box: "management",
-    set: "Raster",
+    set: "Raster Prep",
     help: "Merges several rasters into one new raster.",
     params: [
       { name: "rasters", label: "Input Rasters", type: "rasters", required: true },
@@ -381,7 +381,7 @@ export const TOOLS = [
     id: "resample",
     name: "Resample",
     box: "management",
-    set: "Raster",
+    set: "Raster Prep",
     help: "Changes a raster's cell size, in the raster's own units.",
     params: [
       { name: "raster", label: "Input Raster", type: "raster", required: true },
@@ -397,7 +397,7 @@ export const TOOLS = [
     id: "fill_nodata",
     name: "Fill NoData",
     box: "management",
-    set: "Raster",
+    set: "Raster Prep",
     help: "Fills NoData holes by interpolating from the cells around them (GDAL's four-direction inverse distance).",
     params: [
       { name: "raster", label: "Input Raster", type: "raster", required: true },
@@ -415,7 +415,7 @@ export const TOOLS = [
     id: "hillshade",
     name: "Hillshade",
     box: "spatial",
-    set: "Surface",
+    set: "Terrain",
     help: "Shaded relief from a DEM. A DEM in degrees is scaled from degrees to meters automatically.",
     params: [
       { name: "raster", label: "Input raster", type: "raster", required: true },
@@ -435,7 +435,7 @@ export const TOOLS = [
     id: "slope",
     name: "Slope",
     box: "spatial",
-    set: "Surface",
+    set: "Terrain",
     help: "The steepness of each cell, in degrees or percent rise.",
     params: [
       { name: "raster", label: "Input raster", type: "raster", required: true },
@@ -452,7 +452,7 @@ export const TOOLS = [
     id: "aspect",
     name: "Aspect",
     box: "spatial",
-    set: "Surface",
+    set: "Terrain",
     help: "The compass direction each slope faces, 0-360 degrees clockwise from north; flat cells get -9999.",
     params: [{ name: "raster", label: "Input raster", type: "raster", required: true }, OUT("{raster}_Aspect")],
     run(T, p, ctx) {
@@ -463,7 +463,7 @@ export const TOOLS = [
     id: "roughness",
     name: "Terrain Ruggedness",
     box: "spatial",
-    set: "Surface",
+    set: "Terrain",
     help: "Terrain Ruggedness Index (TRI), Topographic Position Index (TPI) or roughness of each cell.",
     params: [
       { name: "raster", label: "Input raster", type: "raster", required: true },
@@ -478,7 +478,7 @@ export const TOOLS = [
     id: "contour",
     name: "Contour",
     box: "spatial",
-    set: "Surface",
+    set: "Terrain",
     help: "Creates contour lines from a DEM at a fixed interval.",
     params: [
       { name: "raster", label: "Input raster", type: "raster", required: true },
@@ -495,7 +495,7 @@ export const TOOLS = [
     id: "viewshed",
     name: "Viewshed",
     box: "spatial",
-    set: "Surface",
+    set: "Terrain",
     help: "Cells visible from an observer point (the first point of the observer layer). A DEM in degrees is projected to its UTM zone first.",
     params: [
       { name: "raster", label: "Input raster", type: "raster", required: true },
@@ -530,10 +530,10 @@ export const TOOLS = [
     id: "raster_calculator",
     name: "Raster Calculator",
     box: "spatial",
-    set: "Map Algebra",
-    help: 'Builds and runs a Map Algebra expression, as in ArcMap: rasters in double quotes, e.g. Float("b8" - "b4") / Float("b8" + "b4"), Con("dem" > 1000, 1, 0), SetNull("slope" > 45, "dem"). Double-click a layer or a function to add it. Integer rasters are computed as floating point.',
+    set: "Raster Math",
+    help: 'Raster math in three ways. Expression: write a formula with raster names in double quotes, e.g. Float("b8" - "b4") / Float("b8" + "b4"), Con("dem" > 1000, 1, 0), SetNull("slope" > 45, "dem"). Index: pick a spectral index (NDVI, NDWI, NBR, SAVI, ...) and choose which raster is each band. Threshold: compare a raster with a value and keep True as 1 and False as 0, or True only. Integer rasters are computed as floating point.',
     params: [
-      { name: "expr", label: "Map Algebra expression", type: "mapalgebra", required: true, default: "" },
+      { name: "expr", label: "Expression", type: "mapalgebra", required: true, default: "" },
       OUT("rastercalc"),
     ],
     run(T, p, ctx) {
@@ -610,7 +610,7 @@ export const TOOLS = [
     id: "focal",
     name: "Focal Statistics",
     box: "spatial",
-    set: "Neighborhood",
+    set: "Focal",
     help: "For each cell, a statistic of the cells in a square neighborhood around it.",
     params: [
       { name: "raster", label: "Input raster", type: "raster", required: true },
@@ -627,7 +627,7 @@ export const TOOLS = [
     id: "reclassify",
     name: "Reclassify",
     box: "spatial",
-    set: "Reclass",
+    set: "Classify",
     help: "Maps value ranges to new values. AUTO n makes n equal intervals over the data range (classes 1..n). Or write one rule per line, e.g. [0,500)=1, [500,1000)=2, [1000,inf)=3, NO_DATA=NO_DATA.",
     params: [
       { name: "raster", label: "Input raster", type: "raster", required: true },
@@ -671,7 +671,7 @@ export const TOOLS = [
   },
   {
     id: "zonal",
-    name: "Zonal Statistics as Table",
+    name: "Zonal Statistics",
     box: "spatial",
     set: "Zonal",
     help: "Statistics of a raster within each polygon, added as fields to a copy of the zones.",

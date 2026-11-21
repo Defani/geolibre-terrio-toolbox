@@ -1,10 +1,10 @@
 {
   "id": "terrio-toolbox",
   "name": "Terrio Toolbox",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "entry": "index.js",
   "style": "style.css",
-  "description": "ArcMap-style ArcToolbox for GeoLibre powered by terrio (pure-Rust GDAL-class geoprocessing in WebAssembly): Clip, Erase, Intersect, Union, Buffer, Dissolve, Repair Geometry, Project/Clip/Mosaic Raster, Hillshade, Slope, Aspect, Contour, Viewshed, Raster Calculator, Reclassify, Zonal Statistics, raster/vector conversion and export to GeoPackage, Shapefile, GeoParquet, KML, DXF and more. Runs in a Web Worker and reports each tool's elapsed time.",
+  "description": "A docked geoprocessing toolbox for GeoLibre powered by terrio (pure-Rust GDAL-class geoprocessing in WebAssembly): Clip, Erase, Intersect, Union, Buffer, Dissolve, Repair Geometry, Project/Clip/Mosaic Raster, Hillshade, Slope, Aspect, Contour, Viewshed, Raster Calculator with index templates and thresholds, Reclassify, Zonal Statistics, raster/vector conversion and export to GeoPackage, Shapefile, GeoParquet, KML, DXF and more. Runs in a Web Worker and reports each tool's elapsed time.",
   "author": "Defani Arman Alfitriansyah",
   "engines": ["maplibre"]
 }

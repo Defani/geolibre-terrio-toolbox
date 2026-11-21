@@ -507,8 +507,33 @@
   color: hsl(var(--muted-foreground));
 }
 .tt-calc-browse {
-  width: 24px;
-  height: 24px;
+  height: 22px;
+  padding: 0 8px;
+  font-size: 11px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.tt-calc-item.is-local {
+  cursor: pointer;
+}
+.tt-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-inline-end: 6px;
+  padding: 0 5px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 999px;
+  font-size: 10px;
+  color: hsl(var(--muted-foreground));
+}
+.tt-pick .tt-ic {
+  width: 11px;
+  height: 11px;
+}
+.tt-calc-item.is-local:hover .tt-pick {
+  color: hsl(var(--foreground));
+  border-color: hsl(var(--foreground));
 }
 .tt-calc-list {
   height: 150px;
@@ -583,6 +608,7 @@
 }
 .tt-calc-status {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   gap: 6px;
   min-height: 18px;
@@ -600,4 +626,63 @@
 }
 .tt-pad {
   padding: 4px 8px;
+}
+
+/* calculator modes: Expression | Index | Threshold */
+.tt-seg {
+  display: flex;
+  margin-bottom: 8px;
+  padding: 2px;
+  border: 1px solid hsl(var(--input));
+  border-radius: var(--radius);
+  background: hsl(var(--muted));
+}
+.tt-seg-btn {
+  flex: 1;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: calc(var(--radius) - 2px);
+  background: none;
+  color: hsl(var(--muted-foreground));
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.tt-seg-btn:hover {
+  color: hsl(var(--foreground));
+}
+.tt-seg-btn.is-active {
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  box-shadow: 0 1px 2px hsl(var(--foreground) / 0.15);
+}
+.tt-calc-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.tt-calc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.tt-calc-formula {
+  padding: 5px 8px;
+  border-inline-start: 2px solid hsl(var(--foreground));
+  background: hsl(var(--muted));
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 11px;
+}
+.tt-calc-thr {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.tt-calc-keep {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
